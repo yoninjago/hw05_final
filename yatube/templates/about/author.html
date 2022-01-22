@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Об авторе проекта{% endblock %}
+
+{% block content %}
+  <div class="container col-xxl-8 px-4 py-5">
+    <div class="row flex-lg-row-reverse align-items-center g-5 py-5">
+      <div class="col-10 col-sm-8 col-lg-6">
+        <img 
+          src="{% static 'img/im_and_bird.jpg' %}"
+          class="d-block mx-lg-auto img-fluid" alt="My and bird photo"
+          width="700" height="500" loading="lazy"
+        >
+      </div>
+      <div class="col-lg-6">
+        <h1 class="display-5 fw-bold lh-1 mb-3">Об авторе проекта</h1>
+        <p class="lead">
+          В задании сказано опубликовать животное,
+          которое помогает во время работы. Цитата:
+          "так принято в среде программистов;
+          без этого вас могут не взять на работу в приличную компанию!"
+          А вот приличной фотографии кружки у меня не нашлось.
+        </p>
+        <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+          <a href="https://github.com/yoninjago"
+            class="btn btn-primary btn-lg px-4 me-md-2"
+          >
+            Перейти на неоформленный github
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+{% endblock %}
