@@ -202,4 +202,3 @@ class PostsViewsTests(TestCase):
         self.assertEqual(new_post.id, post.id)
         response = self.author.get(FOLLOW_INDEX)
         self.assertEqual(len(response.context['page_obj']), 0)
-
