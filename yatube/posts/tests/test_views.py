@@ -11,7 +11,7 @@ from posts.models import Comment, Follow, Group, Post, User
 from posts.settings import POSTS_PER_PAGE
 
 USERNAME = 'test-user'
-USERNAME_2 = 'following-user'
+USERNAME_2 = 'follower'
 SLUG = 'test-slug'
 SECOND_SLUG = 'another-slug'
 INDEX = reverse('posts:index')
@@ -21,10 +21,16 @@ PROFILE = reverse('posts:profile', args=[USERNAME])
 POST_CREATE = reverse('posts:post_create')
 NUMBER_OF_POSTS = POSTS_PER_PAGE + 3
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
-
-FOLLOW = reverse('posts:profile_follow', args=[USERNAME_2])
-UNFOLLOW = reverse('posts:profile_unfollow', args=[USERNAME_2])
+FOLLOW = reverse('posts:profile_follow', args=[USERNAME])
+UNFOLLOW = reverse('posts:profile_unfollow', args=[USERNAME])
 FOLLOW_INDEX = reverse('posts:follow_index')
+SMALL_GIF = (
+    b'\x47\x49\x46\x38\x39\x61\x01\x00'
+    b'\x01\x00\x00\x00\x00\x21\xf9\x04'
+    b'\x01\x0a\x00\x01\x00\x2c\x00\x00'
+    b'\x00\x00\x01\x00\x01\x00\x00\x02'
+    b'\x02\x4c\x01\x00\x3b'
+)
 
 
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
@@ -32,15 +38,8 @@ class PostsViewsTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        small_gif = (
-            b'\x47\x49\x46\x38\x39\x61\x01\x00'
-            b'\x01\x00\x00\x00\x00\x21\xf9\x04'
-            b'\x01\x0a\x00\x01\x00\x2c\x00\x00'
-            b'\x00\x00\x01\x00\x01\x00\x00\x02'
-            b'\x02\x4c\x01\x00\x3b'
-        )
         cls.user = User.objects.create_user(username=USERNAME)
-        cls.following_user = User.objects.create_user(username=USERNAME_2)
+        cls.follower = User.objects.create_user(username=USERNAME_2)
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug=SLUG,
@@ -57,7 +56,7 @@ class PostsViewsTests(TestCase):
             group=cls.group,
             image=SimpleUploadedFile(
                 name='small.gif',
-                content=small_gif,
+                content=SMALL_GIF,
                 content_type='image/gif'
             )
         )
@@ -66,6 +65,11 @@ class PostsViewsTests(TestCase):
             author=cls.user,
             text='Комментарий'
         )
+        cls.guest = Client()
+        cls.author = Client()
+        cls.author.force_login(cls.user)
+        cls.another = Client()
+        cls.another.force_login(cls.follower)
 
         cls.POST_EDIT = reverse('posts:post_edit', args=[cls.post.id])
         cls.POST_DETAIL = reverse('posts:post_detail', args=[cls.post.id])
@@ -75,18 +79,12 @@ class PostsViewsTests(TestCase):
         super().tearDownClass()
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
-    def setUp(self):
-        self.guest = Client()
-        self.author = Client()
-        self.author.force_login(self.following_user)
-        self.another = Client()
-        self.another.force_login(self.user)
-
     def test_index_group_list_profile_pages_show_correct_context(self):
         """Пост корректно передается на страницы."""
-        for url in [INDEX, GROUP_URL, PROFILE, self.POST_DETAIL]:
+        Follow.objects.create(user=self.follower, author=self.user)
+        for url in [INDEX, GROUP_URL, PROFILE, self.POST_DETAIL, FOLLOW_INDEX]:
             with self.subTest(url=url):
-                response = self.guest.get(url)
+                response = self.another.get(url)
                 if 'page_obj' in response.context:
                     self.assertEqual(
                         len(response.context['page_obj']), 1
@@ -117,12 +115,16 @@ class PostsViewsTests(TestCase):
             self.guest.get(PROFILE).context.get('author')
         )
 
-    def test_post_group_correct(self):
-        """Пост не попал в другие группы."""
-        self.assertNotIn(
-            self.post,
-            self.guest.get(SECOND_GROUP_URL).context['page_obj']
-        )
+    def test_post_group_and_post_feed_correct(self):
+        """Пост не попал в другие группы или ленты постов."""
+        Follow.objects.create(user=self.follower, author=self.user)
+        urls = [SECOND_GROUP_URL, FOLLOW_INDEX]
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertNotIn(
+                    self.post,
+                    self.author.get(url).context['page_obj']
+                )
 
     def test_paginator(self):
         Post.objects.all().delete()
@@ -149,8 +151,8 @@ class PostsViewsTests(TestCase):
     def test_post_detail_page_show_correct_context(self):
         """Комментарий корректно передается на страницу."""
         response = self.guest.get(self.POST_DETAIL)
-        comment = response.context['comments'][0]
-        self.assertEqual(len(response.context['comments']), 1)
+        comment = response.context['post'].comments.all()[0]
+        self.assertEqual(len(response.context['post'].comments.all()), 1)
         self.assertEqual(self.comment.text, comment.text)
         self.assertEqual(self.comment.author, comment.author)
         self.assertEqual(self.comment.post, comment.post)
@@ -158,47 +160,28 @@ class PostsViewsTests(TestCase):
 
     def test_index_cache(self):
         """Проверяем работу кеширования списка постов на главной странице"""
-        test_post = Post.objects.create(text='deleted', author=self.user)
-        response_test_post_exist = self.guest.get(INDEX)
-        Post.objects.filter(pk=test_post.pk).delete()
+        response_posts_exist = self.guest.get(INDEX)
+        Post.objects.all().delete()
         self.assertEquals(
-            response_test_post_exist.content, self.guest.get(INDEX).content
+            response_posts_exist.content, self.guest.get(INDEX).content
         )
         cache.clear()
         self.assertNotEquals(
-            response_test_post_exist.content, self.guest.get(INDEX).content
+            response_posts_exist.content, self.guest.get(INDEX).content
         )
 
-    def test_follow_and_unfollow(self):
-        """
-        Авторизованный пользователь может подписываться
-        на других пользователей и отписываться от них
-        """
+    def test_follow(self):
+        """Авторизованный пользователь может подписываться на авторов"""
         Follow.objects.all().delete()
         self.another.get(FOLLOW)
         self.assertTrue(
-            Follow.objects.filter(user=self.user, author=self.following_user)
-        )
-        self.another.get(UNFOLLOW)
-        self.assertFalse(
-            Follow.objects.filter(user=self.user, author=self.following_user)
+            Follow.objects.filter(user=self.follower, author=self.user)
         )
 
-    def test_new_post_in_follow_index(self):
-        """
-        Новая запись пользователя появляется в ленте тех, кто на него подписан
-        и не появляется у пользователей без подписки на автора
-        """
+    def test_unfollow(self):
+        """Авторизованный пользователь может отписываться от авторов"""
         self.another.get(FOLLOW)
-        new_post = Post.objects.create(
-            text='Новый пост', author=self.following_user, group=self.group
+        self.another.get(UNFOLLOW)
+        self.assertFalse(
+            Follow.objects.filter(user=self.follower, author=self.user)
         )
-        response = self.another.get(FOLLOW_INDEX)
-        self.assertEqual(len(response.context['page_obj']), 1)
-        post = response.context['page_obj'][0]
-        self.assertEqual(new_post.text, post.text)
-        self.assertEqual(new_post.author, post.author)
-        self.assertEqual(new_post.group, post.group)
-        self.assertEqual(new_post.id, post.id)
-        response = self.author.get(FOLLOW_INDEX)
-        self.assertEqual(len(response.context['page_obj']), 0)

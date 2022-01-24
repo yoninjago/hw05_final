@@ -57,7 +57,7 @@ class PostModelTest(TestCase):
                 'pub_date': 'Дата публикации',
             },
             Follow: {
-                'user': 'Пользователь',
+                'user': 'Подписчик',
                 'author': 'Автор',
             }
         }

@@ -1,11 +1,10 @@
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db import IntegrityError
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import CommentForm, PostForm
-from .models import Comment, Follow, Group, Post, User
+from .models import Follow, Group, Post, User
 from .settings import POSTS_PER_PAGE
 
 
@@ -30,12 +29,8 @@ def group_posts(request, slug) -> HttpResponse:
 
 def profile(request, username) -> HttpResponse:
     author = get_object_or_404(User, username=username)
-    if request.user.is_authenticated and (
-        Follow.objects.filter(user=request.user, author=author)
-    ):
-        following = True
-    else:
-        following = False
+    following = request.user.is_authenticated and request.user != author and (
+        Follow.objects.filter(user=request.user, author=author))
     return render(request, 'posts/profile.html', {
         'author': author,
         'following': following,
@@ -47,7 +42,6 @@ def post_detail(request, post_id) -> HttpResponse:
     return render(request, 'posts/post_detail.html', {
         'post': get_object_or_404(Post, pk=post_id),
         'form': CommentForm(),
-        'comments': Comment.objects.filter(post_id=post_id)
     })
 
 
@@ -101,15 +95,13 @@ def follow_index(request) -> HttpResponse:
 def profile_follow(request, username) -> HttpResponse:
     author = get_object_or_404(User, username=username)
     if author != request.user:
-        try:
-            Follow.objects.create(user=request.user, author=author)
-        except IntegrityError:
-            pass
+        Follow.objects.get_or_create(user=request.user, author=author)
     return redirect('posts:follow_index')
 
 
 @login_required
 def profile_unfollow(request, username) -> HttpResponse:
-    author = get_object_or_404(User, username=username)
-    Follow.objects.filter(user=request.user, author=author).delete()
+    get_object_or_404(
+        Follow, user=request.user, author=User.objects.get(username=username)
+    ).delete()
     return redirect('posts:follow_index')

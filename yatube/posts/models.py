@@ -46,8 +46,7 @@ class Post(CreatedModel):
         help_text='Прикрепите картинку к посту'
     )
 
-    class Meta:
-        ordering = ('-pub_date',)
+    class Meta(CreatedModel.Meta):
         verbose_name = 'Пост'
         verbose_name_plural = 'Посты'
 
@@ -85,8 +84,7 @@ class Comment(CreatedModel):
         help_text='Введите текст комментария'
     )
 
-    class Meta:
-        ordering = ('-pub_date',)
+    class Meta(CreatedModel.Meta):
         verbose_name = 'Комментарий'
         verbose_name_plural = 'Комментарии'
 
@@ -99,7 +97,7 @@ class Follow(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name='follower',
-        verbose_name='Пользователь'
+        verbose_name='Подписчик'
     )
     author = models.ForeignKey(
         User,
@@ -109,4 +107,9 @@ class Follow(models.Model):
     )
 
     class Meta:
-        unique_together = (('author', 'user'), )
+        models.UniqueConstraint = (('author', 'user'), )
+        verbose_name = 'Подписка на авторов'
+        verbose_name_plural = 'Подписки на авторов'
+
+    def __str__(self) -> str:
+        return f'Подписка пользователя {self.user} на автора {self.author}'

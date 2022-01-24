@@ -1,18 +1,11 @@
 {% extends 'base.html' %}
-{% load cache %}
 
 {% block title %}Подписки на авторов{% endblock %}
 {% block content %}
   <h1>Подписки на авторов</h1>
-  {% include 'posts/includes/switcher.html' %}
+  {% include 'posts/includes/switcher.html' with follow=True %}
   {% for post in page_obj %}
-    {% include 'posts/includes/post_list.html' %}
-    {% if post.group %}
-      все записи группы:
-      <a href="{% url 'posts:group_list' post.group.slug %}">
-        {{ post.group }}
-      </a>
-    {% endif %}
+    {% include 'posts/includes/post_item.html' %}
     {% if not forloop.last %}<hr>{% endif %}
   {% endfor %}
   {% include 'posts/includes/paginator.html' %}

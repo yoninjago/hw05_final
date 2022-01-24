@@ -1,6 +1,8 @@
 from django.test import TestCase
 from django.urls import reverse
 
+from posts.urls import app_name
+
 USERNAME = 'test-user'
 SLUG = 'test-slug'
 POST_ID = 1
@@ -24,5 +26,5 @@ class PostsRoutesTests(TestCase):
         for url, route, args in urls_names:
             with self.subTest(route=route, url=url):
                 self.assertEqual(
-                    reverse(f'posts:{route}', args=args), url
+                    reverse(f'{app_name}:{route}', args=args), url
                 )
