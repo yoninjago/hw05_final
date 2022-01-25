@@ -180,7 +180,7 @@ class PostsViewsTests(TestCase):
 
     def test_unfollow(self):
         """Авторизованный пользователь может отписываться от авторов"""
-        self.another.get(FOLLOW)
+        Follow.objects.create(user=self.follower, author=self.user)
         self.another.get(UNFOLLOW)
         self.assertFalse(
             Follow.objects.filter(user=self.follower, author=self.user)

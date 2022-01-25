@@ -155,6 +155,9 @@ class PostsFormsTests(TestCase):
             self.COMMENT_CREATE, data=form_data, follow=True
         )
         comment = response.context['post'].comments.all()[0]
+        self.assertEqual(
+            Comment.objects.get(post=self.post).post, comment.post
+        )
         self.assertRedirects(response, self.POST_DETAIL)
         self.assertEqual(Comment.objects.count(), 1)
         self.assertEqual(form_data['text'], comment.text)
@@ -182,6 +185,11 @@ class PostsFormsTests(TestCase):
         form_data = {
             'text': 'Отредактированный пост',
             'group': self.group_2.id,
+            'image': SimpleUploadedFile(
+                name='edit_post_guest_gif.gif',
+                content=SMALL_GIF,
+                content_type='image/gif'
+            )
         }
         for user, redirect_url in cases:
             with self.subTest(user=user, redirect_url=redirect_url):
@@ -189,8 +197,18 @@ class PostsFormsTests(TestCase):
                     self.POST_EDIT, data=form_data, follow=True
                 )
                 self.assertRedirects(response, redirect_url)
-                self.assertNotEqual(form_data['text'], self.post.text)
-                self.assertNotEqual(form_data['group'], self.post.group.id)
+                self.assertEqual(
+                    Post.objects.get(pk=self.post.id).text, self.post.text
+                )
+                self.assertEqual(
+                    Post.objects.get(pk=self.post.id).author, self.post.author
+                )
+                self.assertEqual(
+                    Post.objects.get(pk=self.post.id).group, self.post.group
+                )
+                self.assertEqual(
+                    Post.objects.get(pk=self.post.id).image, self.post.image
+                )
 
     def test_create_comment_guest(self):
         """Анонимный пользователь не может создать запись в Comment."""

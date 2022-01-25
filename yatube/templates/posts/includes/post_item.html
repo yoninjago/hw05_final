@@ -3,7 +3,7 @@
   <ul>
     <li>
       Автор:
-      <a href="{% url 'posts:profile' post.author %}">
+      <a href="{% url 'posts:profile' post.author.username %}">
         {{ post.author.get_full_name }}
       </a>
     </li>
@@ -17,10 +17,10 @@
   <p>{{ post.text|linebreaksbr }}</p>
   <a href="{% url 'posts:post_detail' post.pk %}">подробная информация </a>
   <p>
-    {% if post.group %}
+    {% if post.group and not silent %}
       все записи группы:
       <a href="{% url 'posts:group_list' post.group.slug %}">
-        {{ post.group }}
+        {{ post.group.title }}
       </a>
     {% endif %}
   </p>
