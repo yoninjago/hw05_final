@@ -149,20 +149,22 @@ class PostsFormsTests(TestCase):
 
     def test_create_comment(self):
         """Валидная форма создает запись в Comment."""
-        Comment.objects.all().delete()
+        Post.objects.all().delete()
+        post = Post.objects.create(text='Тест', author=self.user)
         form_data = {'text': 'Тестирование формы'}
         response = self.author.post(
-            self.COMMENT_CREATE, data=form_data, follow=True
+            reverse('posts:add_comment', args=[post.id]),
+            data=form_data,
+            follow=True
         )
         comment = response.context['post'].comments.all()[0]
-        self.assertEqual(
-            Comment.objects.get(post=self.post).post, comment.post
+        self.assertRedirects(
+            response, reverse('posts:post_detail', args=[post.id])
         )
-        self.assertRedirects(response, self.POST_DETAIL)
         self.assertEqual(Comment.objects.count(), 1)
         self.assertEqual(form_data['text'], comment.text)
         self.assertEqual(self.user, comment.author)
-        self.assertEqual(self.post, comment.post)
+        self.assertEqual(post, comment.post)
 
     def test_create_post_guest(self):
         """Анонимный пользователь не может создать запись в Post."""
@@ -191,24 +193,17 @@ class PostsFormsTests(TestCase):
                 content_type='image/gif'
             )
         }
+        post = Post.objects.get(pk=self.post.id)
         for user, redirect_url in cases:
             with self.subTest(user=user, redirect_url=redirect_url):
                 response = user.post(
                     self.POST_EDIT, data=form_data, follow=True
                 )
                 self.assertRedirects(response, redirect_url)
-                self.assertEqual(
-                    Post.objects.get(pk=self.post.id).text, self.post.text
-                )
-                self.assertEqual(
-                    Post.objects.get(pk=self.post.id).author, self.post.author
-                )
-                self.assertEqual(
-                    Post.objects.get(pk=self.post.id).group, self.post.group
-                )
-                self.assertEqual(
-                    Post.objects.get(pk=self.post.id).image, self.post.image
-                )
+                self.assertEqual(post.text, self.post.text)
+                self.assertEqual(post.author, self.post.author)
+                self.assertEqual(post.group, self.post.group)
+                self.assertEqual(post.image, self.post.image)
 
     def test_create_comment_guest(self):
         """Анонимный пользователь не может создать запись в Comment."""
