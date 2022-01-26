@@ -149,22 +149,17 @@ class PostsFormsTests(TestCase):
 
     def test_create_comment(self):
         """Валидная форма создает запись в Comment."""
-        Post.objects.all().delete()
-        post = Post.objects.create(text='Тест', author=self.user)
+        Comment.objects.all().delete()
         form_data = {'text': 'Тестирование формы'}
         response = self.author.post(
-            reverse('posts:add_comment', args=[post.id]),
-            data=form_data,
-            follow=True
+            self.COMMENT_CREATE, data=form_data, follow=True
         )
-        comment = response.context['post'].comments.all()[0]
-        self.assertRedirects(
-            response, reverse('posts:post_detail', args=[post.id])
-        )
+        self.assertRedirects(response, self.POST_DETAIL)
         self.assertEqual(Comment.objects.count(), 1)
+        comment = Comment.objects.all()[0]
+        self.assertEqual(self.post, comment.post)
         self.assertEqual(form_data['text'], comment.text)
         self.assertEqual(self.user, comment.author)
-        self.assertEqual(post, comment.post)
 
     def test_create_post_guest(self):
         """Анонимный пользователь не может создать запись в Post."""
@@ -194,9 +189,9 @@ class PostsFormsTests(TestCase):
             )
         }
         post = Post.objects.get(pk=self.post.id)
-        for user, redirect_url in cases:
-            with self.subTest(user=user, redirect_url=redirect_url):
-                response = user.post(
+        for client, redirect_url in cases:
+            with self.subTest(user=client, redirect_url=redirect_url):
+                response = client.post(
                     self.POST_EDIT, data=form_data, follow=True
                 )
                 self.assertRedirects(response, redirect_url)
